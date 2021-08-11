@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>quiz</title>
+    <meta name="description" content="site">
+    <style>
+        .container {
+            margin: 0 auto;
+            padding: 0;
+            width: 1200px;
+        }
+
+        #title {
+            margin: 0;
+            padding: 0;
+            text-align: center;
+            font-size:40px;
+        }
+
+        p {
+            margin: 0;
+            padding: 0;
+            font-size: 20px;
+            line-height: 20px;
+        }
+
+        #question {
+            padding-bottom: 16px;
+            text-align: center;
+        }
+
+        li {
+            list-style: none;
+        }
+        .button{
+            text-align: center;
+            margin-top:50px;
+        }
+        button {
+            padding: 5px 10px;
+            font-size: 20px;
+            width: 200px;
+            
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        　　<h1 id="title">クイズ　アプリ</h1>
+        　　<p id="genre"></p>
+        　　<p id="difficulty"></p>
+        <hr>
+        　　<p id="question">以下のボタンをクリックと4択問題が始まります。</p>
+        <hr>
+            <div class="button">
+        　　<button id="start-button">開始</button>
+            </div>
+        　<div id="answers"></div>
+
+    
+    </div>
+
+    <!-- <script src="js/main.js"></script> -->
+    <script>
+        const API_URL = 'https://opentdb.com/api.php?amount=10&type=multiple';
+        const titleElement = document.getElementById('title');
+        const questionElement = document.getElementById('question');
+        const answersContainer = document.getElementById('answers');
+        const startButton = document.getElementById('start-button');
+        const genreElement = document.getElementById('genre');
+        const difficultyElement = document.getElementById('difficulty');
+        startButton.addEventListener('click', () => {
+            titleElement.textContent = '取得中';
+            questionElement.textContent = '少々お待ちください';
+            startButton.hidden = true;
+            fetchQuizData(1);
+        });
+        const fetchQuizData = async (index) => {
+            try {
+                const response = await fetch(API_URL);
+                const quizData = await response.json();
+                const quizInstance = new Quiz(quizData);
+                makeQuiz(quizInstance, index);
+            }
+            catch (e) {
+                titleElement.textContent = '通信時のエラーが発生しております。';
+            }
+        }
+        class Quiz {
+            constructor(quizData) {
+                this._quizzes = quizData.results;
+                this._correctAnswersNum = 0;
+                // console.log(quizData);
+            }
+            getQuizCategory(index) {
+                return this._quizzes[index - 1].category;
+                // console.log(this._quizzes[index-1].category);
+            }
+            getQuizDifficulty(index) {
+                return this._quizzes[index - 1].difficulty;
+            }
+
+            getQuizQuestion(index) {
+                return this._quizzes[index - 1].question;
+
+            }
+
+            getQuizAnswers(index) {
+                return this._quizzes[index - 1].incorrect_answers;
+            }
+
+            getCorrectAnswer(index) {
+                // console.log(this._quizzes[index - 1].correct_answer);
+                return this._quizzes[index - 1].correct_answer;
+            }
+
+            getIncorrectAnswers(index) {
+                // console.log(this._quizzes[index - 1].incorrect_answers);
+                return this._quizzes[index - 1].incorrect_answers;
+            }
+            countCorrectAnswersNum(index, answer) {
+                const correctAnswer = this._quizzes[index - 1].correct_answer;
+                if (answer === correctAnswer) {
+                    return this._correctAnswersNum++;
+                }
+            }
+
+            getCorrectAnswersNum() {
+                return this._correctAnswersNum;
+            }
+
+            getNumOfQuiz() {
+                return this._quizzes.length;
+            }
+        }
+
+        const buildAnswers = (quizInstance, index) => {
+
+            const answers = [
+                quizInstance.getCorrectAnswer(index),
+                ...quizInstance.getIncorrectAnswers(index)
+            ];
+            return shuffleArray(answers);
+        };
+
+        const shuffleArray = ([...array]) => {
+            for (let i = array.length - 1; i >= 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        };
+        const makeQuiz = (quizInstance, index) => {
+            // console.log(quizInstance);
+            titleElement.innerHTML = `問題 ${index}`;
+            genreElement.innerHTML = `【ジャンル】 ${quizInstance.getQuizCategory(index)}`;
+            difficultyElement.innerHTML = `【難易度】 ${quizInstance.getQuizDifficulty(index)}`;
+            questionElement.innerHTML = `【クイズ】${quizInstance.getQuizQuestion(index)})`;
+            const answers = buildAnswers(quizInstance, index);
+            // console.log(buildAnswers);
+            answers.forEach((answer) => {
+                const answerElement = document.createElement('li');
+                answersContainer.appendChild(answerElement);
+                const buttonElement = document.createElement('button');
+                buttonElement.innerHTML = answer;
+                answerElement.appendChild(buttonElement);
+                buttonElement.addEventListener('click', () => {
+                    quizInstance.countCorrectAnswersNum(index, answer);
+                    index++;
+                    setNextQuiz(quizInstance, index);
+                });
+            });
+        }
+
+        const setNextQuiz = (quizInstance, index) => {
+            while (answersContainer.firstChild) {
+                answersContainer.removeChild(answersContainer.firstChild);
+            }
+
+            if (index <= quizInstance.getNumOfQuiz()) {
+                makeQuiz(quizInstance, index);
+            } else {
+                finishQuiz(quizInstance);
+            }
+        };
+
+        const finishQuiz = (quizInstance) => {
+            titleElement.textContent = `あなたの正答数は${quizInstance.getCorrectAnswersNum()}です`
+            genreElement.textContent = '';
+            difficultyElement.textContent = '';
+            questionElement.textContent = '再チャレンジしたい場合は下をクリック';
+
+            const restartButton = document.createElement('button');
+            restartButton.textContent = 'ホームに戻る';
+            answersContainer.appendChild(restartButton);
+            restartButton.addEventListener('click', () => {
+                location.reload();
+            });
+        };
+    </script>
+</body>
+
+</html>
